@@ -152,6 +152,27 @@ const StudentDashboard = () => {
                         <div className="mt-4 text-2xl font-bold">{stats?.pending || 0} Pending</div>
                     </Link>
                 </div>
+
+                {/* Resume Tools */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <Link
+                        to="/student/resume-builder"
+                        className="bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg p-6 text-white hover:from-blue-600 hover:to-indigo-700 transition"
+                    >
+                        <h3 className="text-xl font-semibold mb-2">📄 Resume Builder</h3>
+                        <p className="text-blue-50">Create and customize your professional resume</p>
+                        <div className="mt-4 text-sm font-medium">Build Your Resume →</div>
+                    </Link>
+
+                    <Link
+                        to="/student/resume-analyser"
+                        className="bg-gradient-to-r from-orange-500 to-red-600 rounded-lg p-6 text-white hover:from-orange-600 hover:to-red-700 transition"
+                    >
+                        <h3 className="text-xl font-semibold mb-2">🔍 Resume Analyser</h3>
+                        <p className="text-orange-50">Get AI-powered feedback on your resume</p>
+                        <div className="mt-4 text-sm font-medium">Analyze Your Resume →</div>
+                    </Link>
+                </div>
             </main>
         </div>
     );

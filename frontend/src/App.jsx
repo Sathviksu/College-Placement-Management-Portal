@@ -21,6 +21,8 @@ import HODStudents from './pages/HODStudents';
 import TPOAnalytics from './pages/TPOAnalytics';
 import StudentNotifications from './pages/StudentNotifications';
 import TPORoundManagement from './pages/TPORoundManagement';
+import ResumeBuilder from './modules/resume-builder/ResumeBuilder';
+import ResumeAnalyser from './modules/resume-analyser/ResumeAnalyser';
 
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
@@ -103,6 +105,22 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['student']}>
                 <StudentProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/resume-builder"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <ResumeBuilder />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/student/resume-analyser"
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <ResumeAnalyser />
               </ProtectedRoute>
             }
           />

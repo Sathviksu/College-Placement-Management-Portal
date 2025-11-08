@@ -1,0 +1,50 @@
+/* Resume Builder Styles */
+
+.resume-builder-container {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+/* Drag and Drop Styles */
+.draggable-item {
+  transition: transform 0.2s ease;
+}
+
+.draggable-item:hover {
+  transform: translateY(-2px);
+}
+
+/* Print Styles for PDF */
+@media print {
+  body {
+    margin: 0;
+    padding: 0;
+  }
+  
+  #resume-preview {
+    box-shadow: none;
+    margin: 0;
+    padding: 20px;
+  }
+}
+
+/* Scrollbar Styling */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+

@@ -7,6 +7,10 @@ import os
 from config import Config
 from datetime import datetime
 import traceback
+import google.generativeai as genai
+import PyPDF2
+import io
+import json
 
 student_bp = Blueprint('student', __name__)
 
@@ -974,3 +978,161 @@ def mark_all_read():
         print(f"Mark all read error: {e}")
         traceback.print_exc()
         return jsonify({'error': 'Failed to mark all as read'}), 500
+
+
+# ============================================
+# ANALYZE RESUME
+# ============================================
+@student_bp.route('/resume/analyze', methods=['POST'])
+@jwt_required()
+def analyze_resume():
+    """Analyze resume against a job role using Gemini AI"""
+    try:
+        current_user = get_jwt_identity()
+        
+        if current_user.get('role') != 'student':
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Check if API key is configured
+        if not Config.GEMINI_API_KEY:
+            return jsonify({'error': 'Gemini API key not configured. Please set GEMINI_API_KEY in environment variables.'}), 500
+
+        # Configure Gemini
+        genai.configure(api_key=Config.GEMINI_API_KEY)
+        model = genai.GenerativeModel('gemini-pro')
+
+        # Get file and job role from request
+        if 'resumeContent' not in request.files:
+            return jsonify({'error': 'Resume file is required'}), 400
+        
+        file = request.files['resumeContent']
+        job_role = request.form.get('jobRole', '')
+
+        if not file or file.filename == '':
+            return jsonify({'error': 'Resume file is required'}), 400
+
+        if not job_role or len(job_role) < 3:
+            return jsonify({'error': 'Job role must be at least 3 characters'}), 400
+
+        if file.content_type != 'application/pdf':
+            return jsonify({'error': 'Only PDF files are allowed'}), 400
+
+        # Check file size
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)
+        
+        if file_size > Config.MAX_FILE_SIZE:
+            return jsonify({'error': f'File size must be less than {Config.MAX_FILE_SIZE / 1024 / 1024}MB'}), 400
+
+        # Extract text from PDF
+        try:
+            pdf_reader = PyPDF2.PdfReader(file)
+            resume_content = ""
+            for page in pdf_reader.pages:
+                resume_content += page.extract_text() + "\n"
+            
+            if len(resume_content.strip()) < 100:
+                return jsonify({'error': 'Could not extract enough text from the PDF. Please ensure it is a text-based PDF.'}), 400
+        except Exception as e:
+            print(f"PDF extraction error: {e}")
+            return jsonify({'error': 'Failed to extract text from PDF. Please ensure it is a valid PDF file.'}), 400
+
+        # Analysis 1: Score Resume
+        score_prompt = f"""You are an expert resume reviewer. Analyze the following resume content against the specified job role.
+
+Resume Content:
+{resume_content}
+
+Job Role: {job_role}
+
+Provide your analysis in the following JSON format:
+{{
+    "importantInfo": ["list", "of", "important", "information", "extracted", "from", "resume"],
+    "resumeScore": <number from 0 to 100>,
+    "scoreRationale": "brief explanation for the score",
+    "improvementSuggestions": ["suggestion 1", "suggestion 2", "suggestion 3"]
+}}
+
+Important: Return ONLY valid JSON, no additional text or markdown formatting."""
+
+        # Analysis 2: Analyze Resume Against Role
+        analysis_prompt = f"""You are a career advisor. Analyze the following resume content against the specified job role and provide feedback.
+
+Resume Content:
+{resume_content}
+
+Job Role: {job_role}
+
+Provide your analysis in the following JSON format:
+{{
+    "overallSuitability": "assessment of overall suitability",
+    "skillsGapAnalysis": "analysis of skills gap",
+    "feedback": "specific feedback on how to improve"
+}}
+
+Important: Return ONLY valid JSON, no additional text or markdown formatting."""
+
+        try:
+            # Get both analyses
+            score_response = model.generate_content(score_prompt)
+            analysis_response = model.generate_content(analysis_prompt)
+
+            # Parse JSON responses
+            score_text = score_response.text.strip()
+            analysis_text = analysis_response.text.strip()
+
+            # Clean up JSON (remove markdown code blocks if present)
+            if score_text.startswith('```'):
+                score_text = score_text.split('```')[1]
+                if score_text.startswith('json'):
+                    score_text = score_text[4:]
+                score_text = score_text.strip()
+            
+            if analysis_text.startswith('```'):
+                analysis_text = analysis_text.split('```')[1]
+                if analysis_text.startswith('json'):
+                    analysis_text = analysis_text[4:]
+                analysis_text = analysis_text.strip()
+
+            score_data = json.loads(score_text)
+            analysis_data = json.loads(analysis_text)
+
+            # Combine results
+            result = {
+                **score_data,
+                **analysis_data
+            }
+
+            # Ensure all required fields are present
+            if 'resumeScore' not in result:
+                result['resumeScore'] = 0
+            if 'scoreRationale' not in result:
+                result['scoreRationale'] = 'Score not available'
+            if 'importantInfo' not in result:
+                result['importantInfo'] = []
+            if 'improvementSuggestions' not in result:
+                result['improvementSuggestions'] = []
+            if 'overallSuitability' not in result:
+                result['overallSuitability'] = 'Analysis not available'
+            if 'skillsGapAnalysis' not in result:
+                result['skillsGapAnalysis'] = 'Skills gap analysis not available'
+            if 'feedback' not in result:
+                result['feedback'] = 'Feedback not available'
+
+            return jsonify(result), 200
+
+        except json.JSONDecodeError as e:
+            print(f"JSON parsing error: {e}")
+            print(f"Score response: {score_response.text if 'score_response' in locals() else 'N/A'}")
+            print(f"Analysis response: {analysis_response.text if 'analysis_response' in locals() else 'N/A'}")
+            return jsonify({'error': 'Failed to parse AI response. Please try again.'}), 500
+        except Exception as e:
+            print(f"Gemini API error: {e}")
+            traceback.print_exc()
+            return jsonify({'error': f'AI analysis failed: {str(e)}'}), 500
+
+    except Exception as e:
+        print(f"Analyze resume error: {e}")
+        traceback.print_exc()
+        return jsonify({'error': 'Internal server error'}), 500
